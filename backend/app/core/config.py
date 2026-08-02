@@ -1,21 +1,15 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "VisaPilotAI"
-    APP_VERSION: str = "0.1.0"
-    DEBUG: bool = True
-
-    API_V1_PREFIX: str = "/api/v1"
-
     DATABASE_URL: str
-
     OPENAI_API_KEY: str = ""
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        case_sensitive=True
-    )
+    class Config:
+        env_file = ".env"
 
 
 settings = Settings()
