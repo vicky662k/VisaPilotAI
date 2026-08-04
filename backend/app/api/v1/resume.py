@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.database.database import get_db
 from app.models.user import User
+from app.models.resume import Resume
+
 from app.services.resume_service import create_resume
+from app.services.ai_service import parse_resume_with_ai
 
 from app.parser.resume_parser import extract_resume_text
-from app.models.resume import Resume
 
 router = APIRouter(
     prefix="/resume",
@@ -63,6 +65,7 @@ def upload_resume(
         "filename": resume.filename,
     }
 
+
 @router.post("/parse/{resume_id}")
 def parse_resume(
     resume_id: int,
@@ -89,8 +92,10 @@ def parse_resume(
         resume.file_path
     )
 
+    parsed_resume = parse_resume_with_ai(text)
+
     return {
         "resume_id": resume.id,
         "filename": resume.filename,
-        "text": text,
+        "parsed_resume": parsed_resume,
     }
