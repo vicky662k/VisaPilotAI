@@ -10,6 +10,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from app.core.config import settings
 from app.database.base import Base
+
+from app.models.user import User
+from app.models.resume import Resume
+from app.models.job import Job
+
 import app.models.base
 
 config = context.config
