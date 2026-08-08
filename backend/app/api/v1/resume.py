@@ -92,6 +92,11 @@ def parse_resume(
         resume.file_path
     )
 
+    resume.extracted_text = text
+
+    db.commit()
+    db.refresh(resume)
+
     parsed_resume = parse_resume_with_ai(text)
 
     return {

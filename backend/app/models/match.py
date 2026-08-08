@@ -54,9 +54,9 @@ class JobMatch(Base):
     )
 
     location_match = Column(
-        Boolean,
-        nullable=False,
-        default=False,
+    Float,
+    nullable=False,
+    default=0.0,
     )
 
     visa_match = Column(
