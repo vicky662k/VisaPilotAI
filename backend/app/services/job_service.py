@@ -5,8 +5,10 @@ from app.models.job import Job
 from app.schemas.job import JobCreate
 
 
-def create_job(db: Session, job: JobCreate):
-
+def create_job(
+    db: Session,
+    job: JobCreate,
+):
     db_job = Job(
         company=job.company,
         title=job.title,
@@ -16,6 +18,7 @@ def create_job(db: Session, job: JobCreate):
         source=job.source,
         visa_sponsorship=job.visa_sponsorship,
         relocation_support=job.relocation_support,
+        is_active=True,
     )
 
     db.add(db_job)
@@ -25,11 +28,17 @@ def create_job(db: Session, job: JobCreate):
     return db_job
 
 
-def get_jobs(db: Session):
-
+def get_jobs(
+    db: Session,
+):
     return (
         db.query(Job)
-        .order_by(Job.created_at.desc())
+        .filter(
+            Job.is_active == True
+        )
+        .order_by(
+            Job.created_at.desc()
+        )
         .all()
     )
 
@@ -38,10 +47,12 @@ def get_job_by_id(
     db: Session,
     job_id: int,
 ):
-
     return (
         db.query(Job)
-        .filter(Job.id == job_id)
+        .filter(
+            Job.id == job_id,
+            Job.is_active == True,
+        )
         .first()
     )
 
@@ -54,17 +65,27 @@ def search_jobs(
     relocation_support: bool | None = None,
     source: str | None = None,
 ):
-
-    query = db.query(Job)
+    query = (
+        db.query(Job)
+        .filter(
+            Job.is_active == True
+        )
+    )
 
     if keyword:
         search_term = f"%{keyword}%"
 
         query = query.filter(
             or_(
-                Job.title.ilike(search_term),
-                Job.company.ilike(search_term),
-                Job.description.ilike(search_term),
+                Job.title.ilike(
+                    search_term
+                ),
+                Job.company.ilike(
+                    search_term
+                ),
+                Job.description.ilike(
+                    search_term
+                ),
             )
         )
 
@@ -77,12 +98,14 @@ def search_jobs(
 
     if visa_sponsorship is not None:
         query = query.filter(
-            Job.visa_sponsorship == visa_sponsorship
+            Job.visa_sponsorship
+            == visa_sponsorship
         )
 
     if relocation_support is not None:
         query = query.filter(
-            Job.relocation_support == relocation_support
+            Job.relocation_support
+            == relocation_support
         )
 
     if source:
@@ -94,6 +117,8 @@ def search_jobs(
 
     return (
         query
-        .order_by(Job.created_at.desc())
+        .order_by(
+            Job.created_at.desc()
+        )
         .all()
     )
