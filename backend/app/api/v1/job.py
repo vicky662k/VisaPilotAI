@@ -10,10 +10,30 @@ from app.services.job_service import (
     search_jobs,
 )
 
+
 router = APIRouter(
     prefix="/jobs",
     tags=["Jobs"],
 )
+
+
+def job_to_response(job):
+    return {
+        "id": job.id,
+        "company": job.company,
+        "title": job.title,
+        "location": job.location,
+        "description": job.description,
+        "job_url": job.job_url,
+        "source": job.source,
+        "visa_sponsorship": job.visa_sponsorship,
+        "relocation_support": job.relocation_support,
+        "is_active": job.is_active,
+        "application_ready": (
+            bool(job.job_url)
+            and job.is_active
+        ),
+    }
 
 
 @router.post(
@@ -24,7 +44,9 @@ def add_job(
     job: JobCreate,
     db: Session = Depends(get_db),
 ):
-    return create_job(db, job)
+    new_job = create_job(db, job)
+
+    return job_to_response(new_job)
 
 
 @router.get(
@@ -34,7 +56,12 @@ def add_job(
 def list_jobs(
     db: Session = Depends(get_db),
 ):
-    return get_jobs(db)
+    jobs = get_jobs(db)
+
+    return [
+        job_to_response(job)
+        for job in jobs
+    ]
 
 
 @router.get(
@@ -49,8 +76,7 @@ def search_job_list(
     source: str | None = None,
     db: Session = Depends(get_db),
 ):
-
-    return search_jobs(
+    jobs = search_jobs(
         db=db,
         keyword=keyword,
         location=location,
@@ -58,6 +84,11 @@ def search_job_list(
         relocation_support=relocation_support,
         source=source,
     )
+
+    return [
+        job_to_response(job)
+        for job in jobs
+    ]
 
 
 @router.get(
@@ -68,7 +99,6 @@ def get_job(
     job_id: int,
     db: Session = Depends(get_db),
 ):
-
     job = get_job_by_id(
         db,
         job_id,
@@ -80,4 +110,4 @@ def get_job(
             detail="Job not found",
         )
 
-    return job
+    return job_to_response(job)

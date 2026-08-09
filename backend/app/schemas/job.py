@@ -15,6 +15,8 @@ class JobCreate(BaseModel):
 
 class JobResponse(JobCreate):
     id: int
+    is_active: bool = True
+    application_ready: bool = False
 
     class Config:
         from_attributes = True
