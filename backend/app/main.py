@@ -70,3 +70,13 @@ app.include_router(
     application_router,
     prefix=settings.API_V1_PREFIX,
 )
+
+from app.api.v1.application_data import (
+    router as application_data_router,
+)
+
+
+app.include_router(
+    application_data_router,
+    prefix=settings.API_V1_PREFIX,
+)
