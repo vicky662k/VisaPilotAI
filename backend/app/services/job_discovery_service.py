@@ -2,21 +2,54 @@ from sqlalchemy.orm import Session
 
 from app.core.job_sources import JOB_SOURCES
 
+from app.models.resume import Resume
+
 from app.services.greenhouse_service import (
     save_greenhouse_jobs,
     update_existing_greenhouse_jobs,
 )
 
+from app.services.matching_service import (
+    match_active_jobs_for_resume,
+)
+
 
 def discover_jobs(
     db: Session,
+    resume_id: int | None = None,
 ):
     total_found = 0
     total_saved = 0
     total_updated = 0
     total_deactivated = 0
+    total_matched = 0
 
     results = []
+
+    # --------------------------------------------------
+    # Get resume for automatic matching
+    # --------------------------------------------------
+
+    resume = None
+
+    if resume_id is not None:
+
+        resume = (
+            db.query(Resume)
+            .filter(
+                Resume.id == resume_id
+            )
+            .first()
+        )
+
+        if resume is None:
+            raise ValueError(
+                f"Resume {resume_id} not found"
+            )
+
+    # --------------------------------------------------
+    # Greenhouse discovery
+    # --------------------------------------------------
 
     greenhouse_config = JOB_SOURCES.get(
         "greenhouse",
@@ -81,10 +114,30 @@ def discover_jobs(
                 }
             )
 
+    # --------------------------------------------------
+    # M6.5 — Automatic matching
+    # --------------------------------------------------
+
+    if resume is not None:
+
+        matches = match_active_jobs_for_resume(
+            db=db,
+            user_id=resume.user_id,
+            resume=resume,
+        )
+
+        total_matched = len(matches)
+
+    # --------------------------------------------------
+    # Return discovery + matching result
+    # --------------------------------------------------
+
     return {
+        "resume_id": resume_id,
         "total_found": total_found,
         "total_saved": total_saved,
         "total_updated": total_updated,
         "total_deactivated": total_deactivated,
+        "total_matched": total_matched,
         "sources": results,
     }

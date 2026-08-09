@@ -495,3 +495,41 @@ def match_resume_to_all_jobs(
     )
 
     return matches
+def match_active_jobs_for_resume(
+    db: Session,
+    user_id: int,
+    resume: Resume,
+):
+    jobs = (
+        db.query(Job)
+        .filter(
+            Job.is_active == True,
+        )
+        .order_by(Job.id)
+        .all()
+    )
+
+    matches = []
+
+    for job in jobs:
+
+        match = create_job_match(
+            db=db,
+            user_id=user_id,
+            resume=resume,
+            job=job,
+        )
+
+        matches.append(match)
+
+    # Visa-sponsored jobs first,
+    # then highest overall match score.
+    matches.sort(
+        key=lambda match: (
+            bool(match.visa_match),
+            match.match_score or 0,
+        ),
+        reverse=True,
+    )
+
+    return matches

@@ -10,10 +10,16 @@ db = SessionLocal()
 try:
 
     result = discover_jobs(
-        db=db
+        db=db,
+        resume_id=1,
     )
 
-    print("\n===== M6.4 JOB DISCOVERY =====")
+    print("\n===== M6.5 JOB DISCOVERY + MATCHING =====")
+
+    print(
+        "Resume ID:",
+        result["resume_id"],
+    )
 
     print(
         "Total found:",
@@ -34,6 +40,14 @@ try:
         "Total deactivated:",
         result.get(
             "total_deactivated",
+            0,
+        ),
+    )
+
+    print(
+        "Total matched:",
+        result.get(
+            "total_matched",
             0,
         ),
     )
