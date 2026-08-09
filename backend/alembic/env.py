@@ -15,6 +15,8 @@ from app.models.user import User
 from app.models.resume import Resume
 from app.models.job import Job
 from app.models.match import JobMatch
+from app.models.application_profile import ApplicationProfile
+from app.models.application import Application
 import app.models.base
 
 config = context.config

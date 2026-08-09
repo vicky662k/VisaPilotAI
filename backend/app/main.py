@@ -6,6 +6,9 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.resume import router as resume_router
 from app.api.v1.job import router as jobs_router
 from app.api.v1.match import router as match_router
+from app.api.v1.application_profile import (
+    router as application_profile_router,
+)
 
 
 app = FastAPI(
@@ -50,5 +53,20 @@ app.include_router(
 
 app.include_router(
     match_router,
+    prefix=settings.API_V1_PREFIX,
+)
+
+
+app.include_router(
+    application_profile_router,
+    prefix=settings.API_V1_PREFIX,
+)
+
+from app.api.v1.application import (
+    router as application_router,
+)
+
+app.include_router(
+    application_router,
     prefix=settings.API_V1_PREFIX,
 )
