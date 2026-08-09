@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-
+from app.utils.data_normalizer import normalize_email
 from app.models.application import Application
 from app.models.application_profile import ApplicationProfile
 from app.models.job import Job
@@ -66,7 +66,7 @@ def get_application_data(
         "candidate": {
             "first_name": user.first_name if user else None,
             "last_name": user.last_name if user else None,
-            "email": user.email if user else None,
+            "email": (normalize_email(user.email) if user else None),
             "country": user.country if user else None,
             "phone": profile.phone if profile else None,
             "address_line1": (
