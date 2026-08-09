@@ -1,6 +1,3 @@
-import re
-
-
 def normalize_email(
     value: str | None,
 ) -> str | None:
@@ -9,17 +6,13 @@ def normalize_email(
 
     value = value.strip()
 
-    # Convert Markdown email:
-    # [name@example.com](mailto:name@example.com)
-    # into:
-    # name@example.com
-    match = re.fullmatch(
-        r"\[([^\]]+)\]\(mailto:[^)]+\)",
-        value,
-        flags=re.IGNORECASE,
-    )
+    if value.startswith("["):
+        end = value.find("]")
 
-    if match:
-        return match.group(1).strip()
+        if end > 1:
+            email = value[1:end].strip()
+
+            if "@" in email:
+                return email
 
     return value

@@ -1,10 +1,11 @@
 from sqlalchemy.orm import Session
-from app.utils.data_normalizer import normalize_email
+
 from app.models.application import Application
 from app.models.application_profile import ApplicationProfile
 from app.models.job import Job
 from app.models.resume import Resume
 from app.models.user import User
+from app.utils.data_normalizer import normalize_email
 
 
 def get_application_data(
@@ -63,12 +64,33 @@ def get_application_data(
             "notes": application.notes,
             "applied_at": application.applied_at,
         },
+
         "candidate": {
-            "first_name": user.first_name if user else None,
-            "last_name": user.last_name if user else None,
-            "email": (normalize_email(user.email) if user else None),
-            "country": user.country if user else None,
-            "phone": profile.phone if profile else None,
+            "first_name": (
+                user.first_name
+                if user
+                else None
+            ),
+            "last_name": (
+                user.last_name
+                if user
+                else None
+            ),
+            "email": (
+                normalize_email(user.email)
+                if user
+                else None
+            ),
+            "country": (
+                user.country
+                if user
+                else None
+            ),
+            "phone": (
+                profile.phone
+                if profile
+                else None
+            ),
             "address_line1": (
                 profile.address_line1
                 if profile
@@ -79,8 +101,16 @@ def get_application_data(
                 if profile
                 else None
             ),
-            "city": profile.city if profile else None,
-            "state": profile.state if profile else None,
+            "city": (
+                profile.city
+                if profile
+                else None
+            ),
+            "state": (
+                profile.state
+                if profile
+                else None
+            ),
             "postal_code": (
                 profile.postal_code
                 if profile
@@ -122,8 +152,13 @@ def get_application_data(
                 else None
             ),
         },
+
         "resume": {
-            "id": resume.id if resume else None,
+            "id": (
+                resume.id
+                if resume
+                else None
+            ),
             "filename": (
                 resume.filename
                 if resume
@@ -135,8 +170,13 @@ def get_application_data(
                 else None
             ),
         },
+
         "job": {
-            "id": job.id if job else None,
+            "id": (
+                job.id
+                if job
+                else None
+            ),
             "company": (
                 job.company
                 if job
