@@ -1,121 +1,403 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import {
+  registerUser,
+  loginUser,
+  getCurrentUser,
+} from './api'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [mode, setMode] = useState('login')
+
+  const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    country: 'India',
+  })
+
+  const [user, setUser] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  function handleChange(event) {
+    setForm({
+      ...form,
+      [event.target.name]: event.target.value,
+    })
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+
+    setMessage('')
+    setError('')
+    setLoading(true)
+
+    try {
+      if (mode === 'register') {
+        const result = await registerUser(form)
+
+        setMessage(
+          result.message ||
+            'Registration successful. Please login.'
+        )
+
+        setMode('login')
+
+        setForm({
+          first_name: '',
+          last_name: '',
+          email: form.email,
+          password: '',
+          country: 'India',
+        })
+      } else {
+        const result = await loginUser(
+          form.email,
+          form.password
+        )
+
+        localStorage.setItem(
+          'visapilotai_token',
+          result.access_token
+        )
+
+        const currentUser =
+          await getCurrentUser(
+            result.access_token
+          )
+
+        setUser(currentUser)
+
+        setMessage('Login successful.')
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem(
+      'visapilotai_token'
+    )
+
+    setUser(null)
+    setMessage('')
+    setError('')
+  }
+
+  if (user) {
+    return (
+      <div className="dashboard">
+
+        <header className="navbar">
+
+          <div className="brand">
+            VisaPilotAI
+          </div>
+
+          <div className="nav-user">
+
+            <span>
+              {user.first_name}{' '}
+              {user.last_name}
+            </span>
+
+            <button
+              onClick={logout}
+              className="logout-button"
+            >
+              Logout
+            </button>
+
+          </div>
+
+        </header>
+
+        <main className="dashboard-content">
+
+          <h1>
+            Welcome back, {user.first_name} 👋
+          </h1>
+
+          <p>
+            Your VisaPilotAI dashboard is ready.
+          </p>
+
+          <div className="dashboard-placeholder">
+
+            <h2>
+              M8 Dashboard
+            </h2>
+
+            <p>
+              Jobs, AI matches and applications
+              will appear here.
+            </p>
+
+          </div>
+
+        </main>
+
+      </div>
+    )
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
+    <div className="auth-page">
+
+      <div className="auth-container">
+
+        <div className="brand-section">
+
+          <div className="logo-mark">
+            V
+          </div>
+
+          <h1>
+            VisaPilotAI
+          </h1>
+
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            Your AI-powered international
+            career assistant.
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+          <div className="benefits">
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            <div>
+              ✓ Discover global opportunities
+            </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            <div>
+              ✓ AI-powered job matching
+            </div>
+
+            <div>
+              ✓ Automate applications
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="auth-card">
+
+          <div className="tabs">
+
+            <button
+              className={
+                mode === 'login'
+                  ? 'tab active'
+                  : 'tab'
+              }
+              onClick={() => {
+                setMode('login')
+                setMessage('')
+                setError('')
+              }}
+            >
+              Login
+            </button>
+
+            <button
+              className={
+                mode === 'register'
+                  ? 'tab active'
+                  : 'tab'
+              }
+              onClick={() => {
+                setMode('register')
+                setMessage('')
+                setError('')
+              }}
+            >
+              Create Account
+            </button>
+
+          </div>
+
+          <h2>
+            {mode === 'login'
+              ? 'Welcome back'
+              : 'Create your account'}
+          </h2>
+
+          <p className="subtitle">
+            {mode === 'login'
+              ? 'Sign in to continue to VisaPilotAI.'
+              : 'Start your international job search.'}
+          </p>
+
+          {message && (
+            <div className="success">
+              {message}
+            </div>
+          )}
+
+          {error && (
+            <div className="error">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+
+            {mode === 'register' && (
+              <>
+                <div className="form-row">
+
+                  <div className="field">
+
+                    <label>
+                      First name
+                    </label>
+
+                    <input
+                      name="first_name"
+                      value={
+                        form.first_name
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      required
+                    />
+
+                  </div>
+
+                  <div className="field">
+
+                    <label>
+                      Last name
+                    </label>
+
+                    <input
+                      name="last_name"
+                      value={
+                        form.last_name
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      required
+                    />
+
+                  </div>
+
+                </div>
+
+                <div className="field">
+
+                  <label>
+                    Country
+                  </label>
+
+                  <input
+                    name="country"
+                    value={
+                      form.country
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    required
+                  />
+
+                </div>
+              </>
+            )}
+
+            <div className="field">
+
+              <label>
+                Email
+              </label>
+
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={
+                  handleChange
+                }
+                placeholder="you@example.com"
+                required
+              />
+
+            </div>
+
+            <div className="field">
+
+              <label>
+                Password
+              </label>
+
+              <input
+                type="password"
+                name="password"
+                value={
+                  form.password
+                }
+                onChange={
+                  handleChange
+                }
+                placeholder="Enter your password"
+                required
+              />
+
+            </div>
+
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={loading}
+            >
+              {loading
+                ? 'Please wait...'
+                : mode === 'login'
+                  ? 'Sign In'
+                  : 'Create Account'}
+            </button>
+
+          </form>
+
+          <p className="switch-text">
+
+            {mode === 'login'
+              ? "Don't have an account?"
+              : 'Already have an account?'}
+
+            <button
+              className="link-button"
+              onClick={() => {
+                setMode(
+                  mode === 'login'
+                    ? 'register'
+                    : 'login'
+                )
+
+                setMessage('')
+                setError('')
+              }}
+            >
+              {mode === 'login'
+                ? ' Create one'
+                : ' Sign in'}
+            </button>
+
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
   )
 }
 
