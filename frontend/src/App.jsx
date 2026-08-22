@@ -1,161 +1,274 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  registerUser,
   loginUser,
+  registerUser,
   getCurrentUser,
+  getJobs,
+  getUserApplications,
+  getRecommendedJobs,
 } from './api'
 import './App.css'
 
 function App() {
-  const [mode, setMode] = useState('login')
-
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    password: '',
-    country: 'India',
-  })
+  const [token, setToken] = useState(
+    localStorage.getItem('visapilot_token')
+  )
 
   const [user, setUser] = useState(null)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
-  function handleChange(event) {
-    setForm({
-      ...form,
-      [event.target.name]: event.target.value,
-    })
+  const [isRegister, setIsRegister] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  const [jobs, setJobs] = useState([])
+  const [applications, setApplications] = useState([])
+  const [matches, setMatches] = useState([])
+
+  const [loadingData, setLoadingData] = useState(false)
+
+  // --------------------------------
+  // Load dashboard data
+  // --------------------------------
+
+  async function loadDashboard(currentUser, currentToken) {
+    if (!currentUser || !currentToken) return
+
+    setLoadingData(true)
+    setError('')
+
+    try {
+      // --------------------------------
+      // Jobs
+      // --------------------------------
+
+      const jobsData = await getJobs(currentToken)
+
+      setJobs(
+        Array.isArray(jobsData)
+          ? jobsData
+          : Array.isArray(jobsData?.jobs)
+            ? jobsData.jobs
+            : []
+      )
+
+      // --------------------------------
+      // Applications
+      // --------------------------------
+
+      const applicationsData = await getUserApplications(
+        currentUser.id,
+        currentToken
+      )
+
+      setApplications(
+        Array.isArray(applicationsData)
+          ? applicationsData
+          : Array.isArray(applicationsData?.applications)
+            ? applicationsData.applications
+            : []
+      )
+
+      // --------------------------------
+      // AI Recommendations - M8.3
+      // --------------------------------
+
+      // Use the user's resume_id when available.
+      // Current test account uses resume_id = 1.
+      const resumeId = currentUser.resume_id || 1
+
+      try {
+        const matchData = await getRecommendedJobs(
+          resumeId,
+          currentToken
+        )
+
+        console.log(
+          'AI Match API response:',
+          matchData
+        )
+
+        const recommendedJobs = Array.isArray(matchData)
+          ? matchData
+          : Array.isArray(matchData?.jobs)
+            ? matchData.jobs
+            : []
+
+        setMatches(recommendedJobs)
+      } catch (matchError) {
+        console.error(
+          'Failed to load AI recommendations:',
+          matchError
+        )
+
+        setMatches([])
+      }
+    } catch (err) {
+      console.error(err)
+
+      setError(
+        err.message || 'Failed to load dashboard'
+      )
+    } finally {
+      setLoadingData(false)
+    }
   }
+
+  // --------------------------------
+  // Restore logged-in session
+  // --------------------------------
+
+  useEffect(() => {
+    async function restoreSession() {
+      if (!token) return
+
+      try {
+        const currentUser =
+          await getCurrentUser(token)
+
+        setUser(currentUser)
+
+        await loadDashboard(
+          currentUser,
+          token
+        )
+      } catch (err) {
+        console.error(err)
+
+        localStorage.removeItem(
+          'visapilot_token'
+        )
+
+        setToken(null)
+        setUser(null)
+      }
+    }
+
+    restoreSession()
+  }, [])
+
+  // --------------------------------
+  // Login / Register
+  // --------------------------------
 
   async function handleSubmit(event) {
     event.preventDefault()
 
-    setMessage('')
-    setError('')
     setLoading(true)
+    setError('')
+    setMessage('')
 
     try {
-      if (mode === 'register') {
-        const result = await registerUser(form)
+      // --------------------------------
+      // Register
+      // --------------------------------
+
+      if (isRegister) {
+        await registerUser({
+          email,
+          password,
+        })
 
         setMessage(
-          result.message ||
-            'Registration successful. Please login.'
+          'Account created successfully. Please sign in.'
         )
 
-        setMode('login')
+        setIsRegister(false)
+        setPassword('')
 
-        setForm({
-          first_name: '',
-          last_name: '',
-          email: form.email,
-          password: '',
-          country: 'India',
-        })
-      } else {
-        const result = await loginUser(
-          form.email,
-          form.password
-        )
-
-        localStorage.setItem(
-          'visapilotai_token',
-          result.access_token
-        )
-
-        const currentUser =
-          await getCurrentUser(
-            result.access_token
-          )
-
-        setUser(currentUser)
-
-        setMessage('Login successful.')
+        return
       }
+
+      // --------------------------------
+      // Login
+      // --------------------------------
+
+      const result = await loginUser(
+        email,
+        password
+      )
+
+      const accessToken =
+        result.access_token ||
+        result.token
+
+      if (!accessToken) {
+        throw new Error(
+          'Login succeeded but no access token was returned.'
+        )
+      }
+
+      localStorage.setItem(
+        'visapilot_token',
+        accessToken
+      )
+
+      setToken(accessToken)
+
+      const currentUser =
+        await getCurrentUser(accessToken)
+
+      setUser(currentUser)
+
+      await loadDashboard(
+        currentUser,
+        accessToken
+      )
+
+      setMessage('Login successful.')
     } catch (err) {
-      setError(err.message)
+      console.error(err)
+
+      setError(
+        err.message || 'Authentication failed'
+      )
     } finally {
       setLoading(false)
     }
   }
 
-  function logout() {
+  // --------------------------------
+  // Logout
+  // --------------------------------
+
+  function handleLogout() {
     localStorage.removeItem(
-      'visapilotai_token'
+      'visapilot_token'
     )
 
+    setToken(null)
     setUser(null)
-    setMessage('')
-    setError('')
+    setJobs([])
+    setApplications([])
+    setMatches([])
   }
 
-  if (user) {
-    return (
-      <div className="dashboard">
+  // --------------------------------
+  // Refresh
+  // --------------------------------
 
-        <header className="navbar">
+  async function handleRefresh() {
+    if (!user || !token) return
 
-          <div className="brand">
-            VisaPilotAI
-          </div>
-
-          <div className="nav-user">
-
-            <span>
-              {user.first_name}{' '}
-              {user.last_name}
-            </span>
-
-            <button
-              onClick={logout}
-              className="logout-button"
-            >
-              Logout
-            </button>
-
-          </div>
-
-        </header>
-
-        <main className="dashboard-content">
-
-          <h1>
-            Welcome back, {user.first_name} 👋
-          </h1>
-
-          <p>
-            Your VisaPilotAI dashboard is ready.
-          </p>
-
-          <div className="dashboard-placeholder">
-
-            <h2>
-              M8 Dashboard
-            </h2>
-
-            <p>
-              Jobs, AI matches and applications
-              will appear here.
-            </p>
-
-          </div>
-
-        </main>
-
-      </div>
+    await loadDashboard(
+      user,
+      token
     )
   }
 
-  return (
-    <div className="auth-page">
+  // --------------------------------
+  // Login screen
+  // --------------------------------
 
-      <div className="auth-container">
+  if (!token || !user) {
+    return (
+      <div className="auth-page">
 
-        <div className="brand-section">
+        <div className="auth-brand">
 
-          <div className="logo-mark">
+          <div className="brand-icon">
             V
           </div>
 
@@ -168,7 +281,7 @@ function App() {
             career assistant.
           </p>
 
-          <div className="benefits">
+          <div className="features">
 
             <div>
               ✓ Discover global opportunities
@@ -188,33 +301,25 @@ function App() {
 
         <div className="auth-card">
 
-          <div className="tabs">
+          <div className="auth-tabs">
 
             <button
-              className={
-                mode === 'login'
-                  ? 'tab active'
-                  : 'tab'
-              }
+              className={!isRegister ? 'active' : ''}
               onClick={() => {
-                setMode('login')
-                setMessage('')
+                setIsRegister(false)
                 setError('')
+                setMessage('')
               }}
             >
               Login
             </button>
 
             <button
-              className={
-                mode === 'register'
-                  ? 'tab active'
-                  : 'tab'
-              }
+              className={isRegister ? 'active' : ''}
               onClick={() => {
-                setMode('register')
-                setMessage('')
+                setIsRegister(true)
                 setError('')
+                setMessage('')
               }}
             >
               Create Account
@@ -223,179 +328,642 @@ function App() {
           </div>
 
           <h2>
-            {mode === 'login'
-              ? 'Welcome back'
-              : 'Create your account'}
+            {isRegister
+              ? 'Create your account'
+              : 'Welcome back'}
           </h2>
 
-          <p className="subtitle">
-            {mode === 'login'
-              ? 'Sign in to continue to VisaPilotAI.'
-              : 'Start your international job search.'}
+          <p className="auth-subtitle">
+            {isRegister
+              ? 'Start your international career journey.'
+              : 'Sign in to continue to VisaPilotAI.'}
           </p>
 
-          {message && (
-            <div className="success">
-              {message}
+          {error && (
+            <div className="error-box">
+              {error}
             </div>
           )}
 
-          {error && (
-            <div className="error">
-              {error}
+          {message && (
+            <div className="success-box">
+              {message}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
 
-            {mode === 'register' && (
-              <>
-                <div className="form-row">
+            <label>
+              Email
+            </label>
 
-                  <div className="field">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="you@example.com"
+              required
+            />
 
-                    <label>
-                      First name
-                    </label>
+            <label>
+              Password
+            </label>
 
-                    <input
-                      name="first_name"
-                      value={
-                        form.first_name
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      required
-                    />
-
-                  </div>
-
-                  <div className="field">
-
-                    <label>
-                      Last name
-                    </label>
-
-                    <input
-                      name="last_name"
-                      value={
-                        form.last_name
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      required
-                    />
-
-                  </div>
-
-                </div>
-
-                <div className="field">
-
-                  <label>
-                    Country
-                  </label>
-
-                  <input
-                    name="country"
-                    value={
-                      form.country
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    required
-                  />
-
-                </div>
-              </>
-            )}
-
-            <div className="field">
-
-              <label>
-                Email
-              </label>
-
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={
-                  handleChange
-                }
-                placeholder="you@example.com"
-                required
-              />
-
-            </div>
-
-            <div className="field">
-
-              <label>
-                Password
-              </label>
-
-              <input
-                type="password"
-                name="password"
-                value={
-                  form.password
-                }
-                onChange={
-                  handleChange
-                }
-                placeholder="Enter your password"
-                required
-              />
-
-            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="Enter your password"
+              required
+            />
 
             <button
-              type="submit"
               className="primary-button"
+              type="submit"
               disabled={loading}
             >
               {loading
                 ? 'Please wait...'
-                : mode === 'login'
-                  ? 'Sign In'
-                  : 'Create Account'}
+                : isRegister
+                  ? 'Create Account'
+                  : 'Sign In'}
             </button>
 
           </form>
 
-          <p className="switch-text">
+          {!isRegister && (
+            <p className="switch-text">
 
-            {mode === 'login'
-              ? "Don't have an account?"
-              : 'Already have an account?'}
+              Don't have an account?{' '}
 
-            <button
-              className="link-button"
-              onClick={() => {
-                setMode(
-                  mode === 'login'
-                    ? 'register'
-                    : 'login'
-                )
+              <button
+                onClick={() => {
+                  setIsRegister(true)
+                  setError('')
+                  setMessage('')
+                }}
+              >
+                Create one
+              </button>
 
-                setMessage('')
-                setError('')
-              }}
-            >
-              {mode === 'login'
-                ? ' Create one'
-                : ' Sign in'}
-            </button>
-
-          </p>
+            </p>
+          )}
 
         </div>
 
       </div>
+    )
+  }
+
+  // --------------------------------
+  // Dashboard
+  // --------------------------------
+
+  return (
+    <div className="dashboard">
+
+      {/* Navbar */}
+
+      <header className="navbar">
+
+        <div className="navbar-brand">
+
+          <div className="small-icon">
+            V
+          </div>
+
+          <span>
+            VisaPilotAI
+          </span>
+
+        </div>
+
+        <div className="navbar-user">
+
+          <span>
+            {user.name ||
+              user.full_name ||
+              user.email ||
+              'User'}
+          </span>
+
+          <button
+            onClick={handleLogout}
+            className="logout-button"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </header>
+
+      <main className="dashboard-content">
+
+        {/* Error */}
+
+        {error && (
+          <div className="error-box dashboard-error">
+            {error}
+          </div>
+        )}
+
+        {/* Hero */}
+
+        <section className="hero">
+
+          <div>
+
+            <div className="eyebrow">
+              VISA PILOT AI
+            </div>
+
+            <h1>
+              Welcome back,{' '}
+              {user.name ||
+                user.full_name ||
+                'there'} 👋
+            </h1>
+
+            <p>
+              Discover opportunities and
+              manage your international
+              career applications.
+            </p>
+
+          </div>
+
+        </section>
+
+        {/* Stats */}
+
+        <section className="stats-grid">
+
+          {/* Jobs */}
+
+          <div className="stat-card">
+
+            <span className="stat-icon">
+              🔎
+            </span>
+
+            <div>
+
+              <strong>
+                {jobs.length}
+              </strong>
+
+              <span>
+                Jobs Available
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* AI Matches */}
+
+          <div className="stat-card">
+
+            <span className="stat-icon">
+              🤖
+            </span>
+
+            <div>
+
+              <strong>
+                {matches.length}
+              </strong>
+
+              <span>
+                AI Matches
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* Applications */}
+
+          <div className="stat-card">
+
+            <span className="stat-icon">
+              📋
+            </span>
+
+            <div>
+
+              <strong>
+                {applications.length}
+              </strong>
+
+              <span>
+                Applications
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* Interviews */}
+
+          <div className="stat-card">
+
+            <span className="stat-icon">
+              🎯
+            </span>
+
+            <div>
+
+              <strong>
+                {
+                  applications.filter(
+                    (app) =>
+                      app.status ===
+                      'interview'
+                  ).length
+                }
+              </strong>
+
+              <span>
+                Interviews
+              </span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =================================
+            AI JOB MATCHES - M8.3
+           ================================= */}
+
+        <section className="section">
+
+          <div className="section-header">
+
+            <div>
+
+              <h2>
+                AI Job Matches
+              </h2>
+
+              <p>
+                Jobs recommended based on
+                your resume.
+              </p>
+
+            </div>
+
+            <button
+              className="refresh-button"
+              onClick={handleRefresh}
+              disabled={loadingData}
+            >
+              {loadingData
+                ? 'Refreshing...'
+                : 'Refresh'}
+            </button>
+
+          </div>
+
+          {matches.length === 0 ? (
+
+            <div className="empty-card">
+              No AI matches available yet.
+            </div>
+
+          ) : (
+
+            <div className="job-grid">
+
+              {matches.map(
+                (match, index) => {
+
+                  const score =
+                    match.match_score ??
+                    match.score ??
+                    match.match_percentage
+
+                  return (
+
+                    <div
+                      className="job-card match-card"
+                      key={
+                        match.job_id ||
+                        match.id ||
+                        index
+                      }
+                    >
+
+                      {/* Match Header */}
+
+                      <div className="job-card-top">
+
+                        <span className="match-label">
+                          🤖 AI MATCH
+                        </span>
+
+                        {score !== undefined && (
+                          <span className="score">
+                            {score}%
+                          </span>
+                        )}
+
+                      </div>
+
+                      {/* Job Title */}
+
+                      <h3>
+                        {match.title ||
+                          'Untitled Position'}
+                      </h3>
+
+                      {/* Company */}
+
+                      <p className="company">
+                        {match.company ||
+                          'Company'}
+                      </p>
+
+                      {/* Location */}
+
+                      <p className="location">
+                        📍{' '}
+                        {match.location ||
+                          'Location not specified'}
+                      </p>
+
+                      {/* Skill Match */}
+
+                      {match.skill_match_score !==
+                        undefined && (
+
+                        <div className="match-detail">
+
+                          <strong>
+                            Skills:
+                          </strong>{' '}
+
+                          {match.skill_match_score}%
+
+                        </div>
+
+                      )}
+
+                      {/* Visa Sponsorship */}
+
+                      {match.visa_match && (
+
+                        <span className="tag">
+                          ✓ Visa Sponsorship
+                        </span>
+
+                      )}
+
+                      {/* Relocation Support */}
+
+                      {match.relocation_support && (
+
+                        <span className="tag">
+                          ✓ Relocation Support
+                        </span>
+
+                      )}
+
+                      {/* Source */}
+
+                      {match.source && (
+
+                        <div className="match-source">
+                          Source: {match.source}
+                        </div>
+
+                      )}
+
+                      {/* View Job */}
+
+                      <a
+                        href={
+                          match.job_url ||
+                          match.application_url ||
+                          match.url ||
+                          '#'
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="view-job"
+                      >
+                        View Job →
+                      </a>
+
+                    </div>
+
+                  )
+                }
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* =================================
+            ALL JOBS
+           ================================= */}
+
+        <section className="section">
+
+          <div className="section-header">
+
+            <div>
+
+              <h2>
+                Job Discovery
+              </h2>
+
+              <p>
+                Opportunities currently
+                available in VisaPilotAI.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="job-grid">
+
+            {jobs.slice(0, 12).map(
+              (job, index) => (
+
+                <div
+                  className="job-card"
+                  key={
+                    job.id ||
+                    index
+                  }
+                >
+
+                  <h3>
+                    {job.title ||
+                      'Untitled Position'}
+                  </h3>
+
+                  <p className="company">
+                    {job.company ||
+                      job.company_name ||
+                      'Company'}
+                  </p>
+
+                  <p className="location">
+                    📍{' '}
+                    {job.location ||
+                      'Location not specified'}
+                  </p>
+
+                  {job.visa_sponsorship && (
+
+                    <span className="tag">
+                      ✓ Visa Sponsorship
+                    </span>
+
+                  )}
+
+                  <a
+                    href={
+                      job.application_url ||
+                      job.url ||
+                      job.job_url ||
+                      '#'
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="view-job"
+                  >
+                    View Job →
+                  </a>
+
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        </section>
+
+        {/* =================================
+            APPLICATIONS
+           ================================= */}
+
+        <section className="section">
+
+          <div className="section-header">
+
+            <div>
+
+              <h2>
+                My Applications
+              </h2>
+
+              <p>
+                Track your job applications.
+              </p>
+
+            </div>
+
+          </div>
+
+          {applications.length === 0 ? (
+
+            <div className="empty-card">
+              No applications yet.
+            </div>
+
+          ) : (
+
+            <div className="application-list">
+
+              {applications.map(
+                (application, index) => (
+
+                  <div
+                    className="application-card"
+                    key={
+                      application.id ||
+                      index
+                    }
+                  >
+
+                    <div>
+
+                      <h3>
+                        {application.job
+                          ?.title ||
+                          application.job_title ||
+                          `Application #${
+                            application.id
+                          }`}
+                      </h3>
+
+                      <p>
+                        Status:{' '}
+
+                        <strong>
+                          {application.status}
+                        </strong>
+
+                      </p>
+
+                      {application.created_at && (
+
+                        <small>
+
+                          Applied:{' '}
+
+                          {new Date(
+                            application.created_at
+                          ).toLocaleDateString()}
+
+                        </small>
+
+                      )}
+
+                    </div>
+
+                    {application.application_url && (
+
+                      <a
+                        href={
+                          application.application_url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="view-job"
+                      >
+                        View Application →
+                      </a>
+
+                    )}
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+      </main>
 
     </div>
   )

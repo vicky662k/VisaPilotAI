@@ -4,11 +4,11 @@ async function request(endpoint, options = {}) {
   const response = await fetch(
     `${API_BASE_URL}${endpoint}`,
     {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(options.headers || {}),
       },
-      ...options,
     }
   )
 
@@ -36,10 +36,7 @@ export function registerUser(user) {
   })
 }
 
-export function loginUser(
-  email,
-  password
-) {
+export function loginUser(email, password) {
   return request('/auth/login', {
     method: 'POST',
     body: JSON.stringify({
@@ -55,4 +52,52 @@ export function getCurrentUser(token) {
       Authorization: `Bearer ${token}`,
     },
   })
+}
+
+// ===============================
+// Jobs
+// ===============================
+
+export function getJobs(token) {
+  return request('/jobs/', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+}
+
+// ===============================
+// Applications
+// ===============================
+
+export function getUserApplications(
+  userId,
+  token
+) {
+  return request(
+    `/applications/user/${userId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
+}
+
+// ===============================
+// AI Matching
+// ===============================
+
+export function getRecommendedJobs(
+  resumeId,
+  token
+) {
+  return request(
+    `/matches/recommended/${resumeId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  )
 }
