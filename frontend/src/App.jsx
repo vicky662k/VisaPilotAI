@@ -1,4 +1,9 @@
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+
 import {
   loginUser,
   registerUser,
@@ -7,7 +12,9 @@ import {
   getUserApplications,
   getRecommendedJobs,
 } from './api'
+
 import './App.css'
+
 
 function App() {
   const [token, setToken] = useState(
@@ -15,36 +22,59 @@ function App() {
   )
 
   const [user, setUser] = useState(null)
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const [isRegister, setIsRegister] = useState(false)
+  const [isRegister, setIsRegister] =
+    useState(false)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
   const [jobs, setJobs] = useState([])
-  const [applications, setApplications] = useState([])
+  const [applications, setApplications] =
+    useState([])
+
   const [matches, setMatches] = useState([])
 
-  const [loadingData, setLoadingData] = useState(false)
+  const [loadingData, setLoadingData] =
+    useState(false)
 
-  // --------------------------------
-  // Load dashboard data
-  // --------------------------------
+  /* =====================================================
+     M8.5 AI MATCHING STATE
+     ===================================================== */
 
-  async function loadDashboard(currentUser, currentToken) {
-    if (!currentUser || !currentToken) return
+  const [matchFilter, setMatchFilter] =
+    useState('all')
+
+  const [matchSort, setMatchSort] =
+    useState('match')
+
+
+  /* =====================================================
+     LOAD DASHBOARD DATA
+     ===================================================== */
+
+  async function loadDashboard(
+    currentUser,
+    currentToken
+  ) {
+    if (!currentUser || !currentToken) {
+      return
+    }
 
     setLoadingData(true)
     setError('')
 
     try {
-      // --------------------------------
-      // Jobs
-      // --------------------------------
+      /* -------------------------------
+         Jobs
+         ------------------------------- */
 
-      const jobsData = await getJobs(currentToken)
+      const jobsData =
+        await getJobs(currentToken)
 
       setJobs(
         Array.isArray(jobsData)
@@ -54,75 +84,102 @@ function App() {
             : []
       )
 
-      // --------------------------------
-      // Applications
-      // --------------------------------
 
-      const applicationsData = await getUserApplications(
-        currentUser.id,
-        currentToken
-      )
+      /* -------------------------------
+         Applications
+         ------------------------------- */
+
+      const applicationsData =
+        await getUserApplications(
+          currentUser.id,
+          currentToken
+        )
 
       setApplications(
         Array.isArray(applicationsData)
           ? applicationsData
-          : Array.isArray(applicationsData?.applications)
+          : Array.isArray(
+              applicationsData?.applications
+            )
             ? applicationsData.applications
             : []
       )
 
-      // --------------------------------
-      // AI Recommendations - M8.3
-      // --------------------------------
 
-      // Use the user's resume_id when available.
-      // Current test account uses resume_id = 1.
-      const resumeId = currentUser.resume_id || 1
+      /* -------------------------------
+         AI Recommendations - M8.5
+         ------------------------------- */
+
+      // The current test account uses resume_id = 1.
+      // Keep the fallback so AI matching continues to work
+      // even when /auth/me does not expose resume_id yet.
+      const resumeId =
+        currentUser.resume_id || 1
 
       try {
-        const matchData = await getRecommendedJobs(
-          resumeId,
-          currentToken
-        )
+        const matchData =
+          await getRecommendedJobs(
+            resumeId,
+            currentToken
+          )
 
         console.log(
           'AI Match API response:',
           matchData
         )
 
-        const recommendedJobs = Array.isArray(matchData)
-          ? matchData
-          : Array.isArray(matchData?.jobs)
-            ? matchData.jobs
-            : []
+        const recommendedJobs =
+          Array.isArray(matchData)
+            ? matchData
+            : Array.isArray(
+                matchData?.jobs
+              )
+              ? matchData.jobs
+              : []
 
-        setMatches(recommendedJobs)
+        // Only replace matches when the API actually
+        // returns recommendations. Do not wipe existing
+        // matches because of a temporary API/network issue.
+        if (recommendedJobs.length > 0) {
+          setMatches(recommendedJobs)
+        } else {
+          console.warn(
+            'AI recommendation API returned no jobs.'
+          )
+        }
       } catch (matchError) {
         console.error(
           'Failed to load AI recommendations:',
           matchError
         )
 
-        setMatches([])
+        // Intentionally do not call setMatches([]).
+        // Existing matches remain visible if the endpoint
+        // is temporarily unavailable.
       }
+
     } catch (err) {
       console.error(err)
 
       setError(
-        err.message || 'Failed to load dashboard'
+        err.message ||
+          'Failed to load dashboard'
       )
     } finally {
       setLoadingData(false)
     }
   }
 
-  // --------------------------------
-  // Restore logged-in session
-  // --------------------------------
+
+  /* =====================================================
+     RESTORE SESSION
+     ===================================================== */
 
   useEffect(() => {
     async function restoreSession() {
-      if (!token) return
+      if (!token) {
+        return
+      }
 
       try {
         const currentUser =
@@ -134,6 +191,7 @@ function App() {
           currentUser,
           token
         )
+
       } catch (err) {
         console.error(err)
 
@@ -149,9 +207,10 @@ function App() {
     restoreSession()
   }, [])
 
-  // --------------------------------
-  // Login / Register
-  // --------------------------------
+
+  /* =====================================================
+     LOGIN / REGISTER
+     ===================================================== */
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -161,9 +220,9 @@ function App() {
     setMessage('')
 
     try {
-      // --------------------------------
-      // Register
-      // --------------------------------
+      /* -------------------------------
+         Register
+         ------------------------------- */
 
       if (isRegister) {
         await registerUser({
@@ -181,14 +240,16 @@ function App() {
         return
       }
 
-      // --------------------------------
-      // Login
-      // --------------------------------
 
-      const result = await loginUser(
-        email,
-        password
-      )
+      /* -------------------------------
+         Login
+         ------------------------------- */
+
+      const result =
+        await loginUser(
+          email,
+          password
+        )
 
       const accessToken =
         result.access_token ||
@@ -208,7 +269,9 @@ function App() {
       setToken(accessToken)
 
       const currentUser =
-        await getCurrentUser(accessToken)
+        await getCurrentUser(
+          accessToken
+        )
 
       setUser(currentUser)
 
@@ -217,21 +280,27 @@ function App() {
         accessToken
       )
 
-      setMessage('Login successful.')
+      setMessage(
+        'Login successful.'
+      )
+
     } catch (err) {
       console.error(err)
 
       setError(
-        err.message || 'Authentication failed'
+        err.message ||
+          'Authentication failed'
       )
+
     } finally {
       setLoading(false)
     }
   }
 
-  // --------------------------------
-  // Logout
-  // --------------------------------
+
+  /* =====================================================
+     LOGOUT
+     ===================================================== */
 
   function handleLogout() {
     localStorage.removeItem(
@@ -240,17 +309,24 @@ function App() {
 
     setToken(null)
     setUser(null)
+
     setJobs([])
     setApplications([])
     setMatches([])
+
+    setError('')
+    setMessage('')
   }
 
-  // --------------------------------
-  // Refresh
-  // --------------------------------
+
+  /* =====================================================
+     REFRESH
+     ===================================================== */
 
   async function handleRefresh() {
-    if (!user || !token) return
+    if (!user || !token) {
+      return
+    }
 
     await loadDashboard(
       user,
@@ -258,9 +334,278 @@ function App() {
     )
   }
 
-  // --------------------------------
-  // Login screen
-  // --------------------------------
+
+  /* =====================================================
+     M8.5 AI MATCH HELPERS
+     ===================================================== */
+
+  function getMatchScore(match) {
+    const rawScore =
+      match?.match_score ??
+      match?.score ??
+      match?.match_percentage ??
+      0
+
+    const numericScore =
+      Number(rawScore)
+
+    if (
+      Number.isNaN(numericScore)
+    ) {
+      return 0
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        Math.round(numericScore),
+        100
+      )
+    )
+  }
+
+
+  function getSkillScore(match) {
+    const value =
+      Number(
+        match?.skill_match_score ?? 0
+      )
+
+    if (Number.isNaN(value)) {
+      return 0
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        Math.round(value),
+        100
+      )
+    )
+  }
+
+
+  function getLocationScore(match) {
+    const value =
+      Number(
+        match?.location_score ?? 0
+      )
+
+    if (Number.isNaN(value)) {
+      return 0
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        Math.round(value),
+        100
+      )
+    )
+  }
+
+
+  function getMatchQuality(score) {
+    if (score >= 80) {
+      return 'Excellent Match'
+    }
+
+    if (score >= 70) {
+      return 'Strong Match'
+    }
+
+    if (score >= 60) {
+      return 'Good Match'
+    }
+
+    return 'Potential Match'
+  }
+
+
+  function getMatchQualityClass(score) {
+    if (score >= 80) {
+      return 'excellent'
+    }
+
+    if (score >= 70) {
+      return 'strong'
+    }
+
+    if (score >= 60) {
+      return 'good'
+    }
+
+    return 'potential'
+  }
+
+
+  function getMatchReasons(match) {
+    const reasons = []
+
+    const score =
+      getMatchScore(match)
+
+    const skillScore =
+      getSkillScore(match)
+
+    const locationScore =
+      getLocationScore(match)
+
+    if (skillScore >= 80) {
+      reasons.push(
+        'Your skills strongly align with this role.'
+      )
+    } else if (skillScore >= 60) {
+      reasons.push(
+        'Several of your skills match this role.'
+      )
+    } else if (skillScore > 0) {
+      reasons.push(
+        'Some relevant skills were identified.'
+      )
+    }
+
+    if (locationScore >= 80) {
+      reasons.push(
+        'The job location is a strong match.'
+      )
+    } else if (locationScore >= 50) {
+      reasons.push(
+        'The location has some compatibility with your preferences.'
+      )
+    }
+
+    if (match.visa_match) {
+      reasons.push(
+        'Visa sponsorship is available.'
+      )
+    }
+
+    if (match.relocation_support) {
+      reasons.push(
+        'Relocation support is available.'
+      )
+    }
+
+    if (
+      reasons.length === 0 &&
+      score >= 80
+    ) {
+      reasons.push(
+        'This position has a strong overall match with your profile.'
+      )
+    }
+
+    if (
+      reasons.length === 0
+    ) {
+      reasons.push(
+        'This position may be worth reviewing based on your profile.'
+      )
+    }
+
+    return reasons
+  }
+
+
+  /* =====================================================
+     M8.5 FILTERED + SORTED MATCHES
+     ===================================================== */
+
+  const filteredMatches =
+    useMemo(() => {
+      let result = [...matches]
+
+      /* -------------------------------
+         Filters
+         ------------------------------- */
+
+      if (matchFilter === '80') {
+        result = result.filter(
+          (match) =>
+            getMatchScore(match) >= 80
+        )
+      }
+
+      if (matchFilter === '60') {
+        result = result.filter(
+          (match) =>
+            getMatchScore(match) >= 60
+        )
+      }
+
+      if (
+        matchFilter ===
+        'visa-relocation'
+      ) {
+        result = result.filter(
+          (match) =>
+            Boolean(
+              match.visa_match
+            ) &&
+            Boolean(
+              match.relocation_support
+            )
+        )
+      }
+
+
+      /* -------------------------------
+         Sorting
+         ------------------------------- */
+
+      result.sort(
+        (a, b) => {
+          if (
+            matchSort ===
+            'skills'
+          ) {
+            return (
+              getSkillScore(b) -
+              getSkillScore(a)
+            )
+          }
+
+          if (
+            matchSort ===
+            'location'
+          ) {
+            return (
+              getLocationScore(b) -
+              getLocationScore(a)
+            )
+          }
+
+          return (
+            getMatchScore(b) -
+            getMatchScore(a)
+          )
+        }
+      )
+
+      return result
+
+    }, [
+      matches,
+      matchFilter,
+      matchSort,
+    ])
+
+
+  /* =====================================================
+     VISA OPPORTUNITIES
+     ===================================================== */
+
+  const visaOpportunityCount =
+    matches.filter(
+      (match) =>
+        Boolean(match.visa_match)
+    ).length
+
+
+  /* =====================================================
+     LOGIN SCREEN
+     ===================================================== */
 
   if (!token || !user) {
     return (
@@ -299,12 +644,17 @@ function App() {
 
         </div>
 
+
         <div className="auth-card">
 
           <div className="auth-tabs">
 
             <button
-              className={!isRegister ? 'active' : ''}
+              className={
+                !isRegister
+                  ? 'active'
+                  : ''
+              }
               onClick={() => {
                 setIsRegister(false)
                 setError('')
@@ -314,8 +664,13 @@ function App() {
               Login
             </button>
 
+
             <button
-              className={isRegister ? 'active' : ''}
+              className={
+                isRegister
+                  ? 'active'
+                  : ''
+              }
               onClick={() => {
                 setIsRegister(true)
                 setError('')
@@ -327,11 +682,13 @@ function App() {
 
           </div>
 
+
           <h2>
             {isRegister
               ? 'Create your account'
               : 'Welcome back'}
           </h2>
+
 
           <p className="auth-subtitle">
             {isRegister
@@ -339,11 +696,13 @@ function App() {
               : 'Sign in to continue to VisaPilotAI.'}
           </p>
 
+
           {error && (
             <div className="error-box">
               {error}
             </div>
           )}
+
 
           {message && (
             <div className="success-box">
@@ -351,7 +710,10 @@ function App() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+
+          <form
+            onSubmit={handleSubmit}
+          >
 
             <label>
               Email
@@ -361,11 +723,14 @@ function App() {
               type="email"
               value={email}
               onChange={(e) =>
-                setEmail(e.target.value)
+                setEmail(
+                  e.target.value
+                )
               }
               placeholder="you@example.com"
               required
             />
+
 
             <label>
               Password
@@ -375,11 +740,14 @@ function App() {
               type="password"
               value={password}
               onChange={(e) =>
-                setPassword(e.target.value)
+                setPassword(
+                  e.target.value
+                )
               }
               placeholder="Enter your password"
               required
             />
+
 
             <button
               className="primary-button"
@@ -394,6 +762,7 @@ function App() {
             </button>
 
           </form>
+
 
           {!isRegister && (
             <p className="switch-text">
@@ -419,14 +788,17 @@ function App() {
     )
   }
 
-  // --------------------------------
-  // Dashboard
-  // --------------------------------
+
+  /* =====================================================
+     DASHBOARD
+     ===================================================== */
 
   return (
     <div className="dashboard">
 
-      {/* Navbar */}
+      {/* =================================================
+          NAVBAR
+          ================================================= */}
 
       <header className="navbar">
 
@@ -441,6 +813,7 @@ function App() {
           </span>
 
         </div>
+
 
         <div className="navbar-user">
 
@@ -462,9 +835,12 @@ function App() {
 
       </header>
 
+
       <main className="dashboard-content">
 
-        {/* Error */}
+        {/* =================================================
+            ERROR
+            ================================================= */}
 
         {error && (
           <div className="error-box dashboard-error">
@@ -472,7 +848,10 @@ function App() {
           </div>
         )}
 
-        {/* Hero */}
+
+        {/* =================================================
+            HERO
+            ================================================= */}
 
         <section className="hero">
 
@@ -499,7 +878,10 @@ function App() {
 
         </section>
 
-        {/* Stats */}
+
+        {/* =================================================
+            STATS
+            ================================================= */}
 
         <section className="stats-grid">
 
@@ -525,6 +907,7 @@ function App() {
 
           </div>
 
+
           {/* AI Matches */}
 
           <div className="stat-card">
@@ -547,6 +930,7 @@ function App() {
 
           </div>
 
+
           {/* Applications */}
 
           <div className="stat-card">
@@ -568,6 +952,7 @@ function App() {
             </div>
 
           </div>
+
 
           {/* Interviews */}
 
@@ -597,11 +982,35 @@ function App() {
 
           </div>
 
+
+          {/* Visa Opportunities */}
+
+          <div className="stat-card">
+
+            <span className="stat-icon">
+              🌍
+            </span>
+
+            <div>
+
+              <strong>
+                {visaOpportunityCount}
+              </strong>
+
+              <span>
+                Visa Opportunities
+              </span>
+
+            </div>
+
+          </div>
+
         </section>
 
-        {/* =================================
-            AI JOB MATCHES - M8.3
-           ================================= */}
+
+        {/* =================================================
+            M8.5 AI JOB MATCHES
+            ================================================= */}
 
         <section className="section">
 
@@ -615,10 +1024,11 @@ function App() {
 
               <p>
                 Jobs recommended based on
-                your resume.
+                your resume and profile.
               </p>
 
             </div>
+
 
             <button
               className="refresh-button"
@@ -632,27 +1042,215 @@ function App() {
 
           </div>
 
+
+          {/* =================================================
+              M8.5 FILTERS
+              ================================================= */}
+
+          {matches.length > 0 && (
+            <div className="match-controls">
+
+              <div className="filter-group">
+
+                <span className="filter-label">
+                  Match Filter
+                </span>
+
+                <div className="filter-buttons">
+
+                  <button
+                    className={
+                      matchFilter === 'all'
+                        ? 'filter-button active'
+                        : 'filter-button'
+                    }
+                    onClick={() =>
+                      setMatchFilter('all')
+                    }
+                  >
+                    All
+                  </button>
+
+
+                  <button
+                    className={
+                      matchFilter === '80'
+                        ? 'filter-button active'
+                        : 'filter-button'
+                    }
+                    onClick={() =>
+                      setMatchFilter('80')
+                    }
+                  >
+                    80%+
+                  </button>
+
+
+                  <button
+                    className={
+                      matchFilter === '60'
+                        ? 'filter-button active'
+                        : 'filter-button'
+                    }
+                    onClick={() =>
+                      setMatchFilter('60')
+                    }
+                  >
+                    60%+
+                  </button>
+
+
+                  <button
+                    className={
+                      matchFilter ===
+                      'visa-relocation'
+                        ? 'filter-button active'
+                        : 'filter-button'
+                    }
+                    onClick={() =>
+                      setMatchFilter(
+                        'visa-relocation'
+                      )
+                    }
+                  >
+                    Visa & Relocation
+                  </button>
+
+                </div>
+
+              </div>
+
+
+              <div className="sort-group">
+
+                <label
+                  htmlFor="match-sort"
+                  className="filter-label"
+                >
+                  Sort By
+                </label>
+
+                <select
+                  id="match-sort"
+                  value={matchSort}
+                  onChange={(e) =>
+                    setMatchSort(
+                      e.target.value
+                    )
+                  }
+                  className="sort-select"
+                >
+
+                  <option value="match">
+                    Highest Match
+                  </option>
+
+                  <option value="skills">
+                    Best Skills Match
+                  </option>
+
+                  <option value="location">
+                    Best Location Match
+                  </option>
+
+                </select>
+
+              </div>
+
+            </div>
+          )}
+
+
+          {/* =================================================
+              NO MATCHES
+              ================================================= */}
+
           {matches.length === 0 ? (
 
+            <div className="empty-card ai-empty-card">
+
+              <div className="empty-icon">
+                🤖
+              </div>
+
+              <h3>
+                No AI matches available yet
+              </h3>
+
+              <p>
+                Upload a resume and refresh
+                your recommendations to find
+                suitable jobs.
+              </p>
+
+            </div>
+
+          ) : filteredMatches.length === 0 ? (
+
             <div className="empty-card">
-              No AI matches available yet.
+
+              <div className="empty-icon">
+                🔍
+              </div>
+
+              <h3>
+                No matches found
+              </h3>
+
+              <p>
+                Try changing your AI match
+                filters.
+              </p>
+
+              <button
+                className="refresh-button"
+                onClick={() =>
+                  setMatchFilter('all')
+                }
+              >
+                Clear Filters
+              </button>
+
             </div>
 
           ) : (
 
-            <div className="job-grid">
+            /* =================================================
+               MATCH RESULTS
+               ================================================= */
 
-              {matches.map(
+            <div className="job-grid ai-match-grid">
+
+              {filteredMatches.map(
                 (match, index) => {
 
                   const score =
-                    match.match_score ??
-                    match.score ??
-                    match.match_percentage
+                    getMatchScore(match)
+
+                  const skillScore =
+                    getSkillScore(match)
+
+                  const locationScore =
+                    getLocationScore(match)
+
+                  const quality =
+                    getMatchQuality(
+                      score
+                    )
+
+                  const qualityClass =
+                    getMatchQualityClass(
+                      score
+                    )
+
+                  const reasons =
+                    getMatchReasons(
+                      match
+                    )
+
 
                   return (
-
-                    <div
+                    <article
                       className="job-card match-card"
                       key={
                         match.job_id ||
@@ -661,37 +1259,90 @@ function App() {
                       }
                     >
 
-                      {/* Match Header */}
+                      {/* ---------------------------------
+                          CARD HEADER
+                          --------------------------------- */}
 
-                      <div className="job-card-top">
+                      <div className="ai-card-header">
 
                         <span className="match-label">
                           🤖 AI MATCH
                         </span>
 
-                        {score !== undefined && (
-                          <span className="score">
-                            {score}%
-                          </span>
-                        )}
+                        <span
+                          className={
+                            `match-quality ${qualityClass}`
+                          }
+                        >
+                          {quality}
+                        </span>
 
                       </div>
 
-                      {/* Job Title */}
+
+                      {/* ---------------------------------
+                          SCORE
+                          --------------------------------- */}
+
+                      <div className="match-score-row">
+
+                        <div>
+
+                          <span className="score-number">
+                            {score}%
+                          </span>
+
+                          <span className="score-label">
+                            Match Score
+                          </span>
+
+                        </div>
+
+
+                        <div
+                          className={
+                            `score-circle ${qualityClass}`
+                          }
+                        >
+                          {score}%
+                        </div>
+
+                      </div>
+
+
+                      {/* Main progress */}
+
+                      <div className="match-progress">
+
+                        <div
+                          className={
+                            `match-progress-fill ${qualityClass}`
+                          }
+                          style={{
+                            width:
+                              `${Math.min(
+                                score,
+                                100
+                              )}%`,
+                          }}
+                        />
+
+                      </div>
+
+
+                      {/* ---------------------------------
+                          JOB
+                          --------------------------------- */}
 
                       <h3>
                         {match.title ||
                           'Untitled Position'}
                       </h3>
 
-                      {/* Company */}
-
                       <p className="company">
                         {match.company ||
                           'Company'}
                       </p>
-
-                      {/* Location */}
 
                       <p className="location">
                         📍{' '}
@@ -699,54 +1350,157 @@ function App() {
                           'Location not specified'}
                       </p>
 
-                      {/* Skill Match */}
 
-                      {match.skill_match_score !==
-                        undefined && (
+                      {/* ---------------------------------
+                          MATCH BREAKDOWN
+                          --------------------------------- */}
 
-                        <div className="match-detail">
+                      <div className="match-breakdown">
 
+                        <div className="breakdown-header">
                           <strong>
-                            Skills:
-                          </strong>{' '}
+                            Match Breakdown
+                          </strong>
+                        </div>
 
-                          {match.skill_match_score}%
+
+                        {/* Skills */}
+
+                        <div className="breakdown-item">
+
+                          <div className="breakdown-label">
+
+                            <span>
+                              Skills
+                            </span>
+
+                            <strong>
+                              {skillScore}%
+                            </strong>
+
+                          </div>
+
+
+                          <div className="breakdown-bar">
+
+                            <div
+                              className="breakdown-fill"
+                              style={{
+                                width:
+                                  `${Math.min(
+                                    skillScore,
+                                    100
+                                  )}%`,
+                              }}
+                            />
+
+                          </div>
 
                         </div>
 
-                      )}
 
-                      {/* Visa Sponsorship */}
+                        {/* Location */}
 
-                      {match.visa_match && (
+                        <div className="breakdown-item">
 
-                        <span className="tag">
-                          ✓ Visa Sponsorship
-                        </span>
+                          <div className="breakdown-label">
 
-                      )}
+                            <span>
+                              Location
+                            </span>
 
-                      {/* Relocation Support */}
+                            <strong>
+                              {locationScore}%
+                            </strong>
 
-                      {match.relocation_support && (
+                          </div>
 
-                        <span className="tag">
-                          ✓ Relocation Support
-                        </span>
 
-                      )}
+                          <div className="breakdown-bar">
 
-                      {/* Source */}
+                            <div
+                              className="breakdown-fill"
+                              style={{
+                                width:
+                                  `${Math.min(
+                                    locationScore,
+                                    100
+                                  )}%`,
+                              }}
+                            />
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+
+                      {/* ---------------------------------
+                          WHY THIS MATCHES
+                          --------------------------------- */}
+
+                      <div className="match-reasons">
+
+                        <strong>
+                          Why this matches
+                        </strong>
+
+                        {reasons.map(
+                          (
+                            reason,
+                            reasonIndex
+                          ) => (
+                            <div
+                              key={
+                                reasonIndex
+                              }
+                              className="reason-item"
+                            >
+                              ✓ {reason}
+                            </div>
+                          )
+                        )}
+
+                      </div>
+
+
+                      {/* ---------------------------------
+                          VISA / RELOCATION
+                          --------------------------------- */}
+
+                      <div className="match-tags">
+
+                        {match.visa_match && (
+                          <span className="tag visa-tag">
+                            ✓ Visa Sponsorship
+                          </span>
+                        )}
+
+                        {match.relocation_support && (
+                          <span className="tag relocation-tag">
+                            ✓ Relocation Support
+                          </span>
+                        )}
+
+                      </div>
+
+
+                      {/* ---------------------------------
+                          SOURCE
+                          --------------------------------- */}
 
                       {match.source && (
-
                         <div className="match-source">
-                          Source: {match.source}
+                          Source:{' '}
+                          {match.source}
                         </div>
-
                       )}
 
-                      {/* View Job */}
+
+                      {/* ---------------------------------
+                          ACTION
+                          --------------------------------- */}
 
                       <a
                         href={
@@ -762,21 +1516,20 @@ function App() {
                         View Job →
                       </a>
 
-                    </div>
-
+                    </article>
                   )
                 }
               )}
 
             </div>
-
           )}
 
         </section>
 
-        {/* =================================
-            ALL JOBS
-           ================================= */}
+
+        {/* =================================================
+            JOB DISCOVERY
+            ================================================= */}
 
         <section className="section">
 
@@ -797,70 +1550,97 @@ function App() {
 
           </div>
 
-          <div className="job-grid">
 
-            {jobs.slice(0, 12).map(
-              (job, index) => (
+          {jobs.length === 0 ? (
 
-                <div
-                  className="job-card"
-                  key={
-                    job.id ||
-                    index
-                  }
-                >
+            <div className="empty-card">
+              No jobs available yet.
+            </div>
 
-                  <h3>
-                    {job.title ||
-                      'Untitled Position'}
-                  </h3>
+          ) : (
 
-                  <p className="company">
-                    {job.company ||
-                      job.company_name ||
-                      'Company'}
-                  </p>
+            <div className="job-grid">
 
-                  <p className="location">
-                    📍{' '}
-                    {job.location ||
-                      'Location not specified'}
-                  </p>
+              {jobs.slice(0, 12).map(
+                (job, index) => (
 
-                  {job.visa_sponsorship && (
-
-                    <span className="tag">
-                      ✓ Visa Sponsorship
-                    </span>
-
-                  )}
-
-                  <a
-                    href={
-                      job.application_url ||
-                      job.url ||
-                      job.job_url ||
-                      '#'
+                  <article
+                    className="job-card"
+                    key={
+                      job.id ||
+                      index
                     }
-                    target="_blank"
-                    rel="noreferrer"
-                    className="view-job"
                   >
-                    View Job →
-                  </a>
 
-                </div>
+                    <div className="job-card-top">
 
-              )
-            )}
+                      <span className="match-label">
+                        JOB
+                      </span>
 
-          </div>
+                    </div>
+
+                    <h3>
+                      {job.title ||
+                        'Untitled Position'}
+                    </h3>
+
+                    <p className="company">
+                      {job.company ||
+                        job.company_name ||
+                        'Company'}
+                    </p>
+
+                    <p className="location">
+                      📍{' '}
+                      {job.location ||
+                        'Location not specified'}
+                    </p>
+
+
+                    {job.visa_sponsorship && (
+                      <span className="tag visa-tag">
+                        ✓ Visa Sponsorship
+                      </span>
+                    )}
+
+
+                    {job.relocation_support && (
+                      <span className="tag relocation-tag">
+                        ✓ Relocation Support
+                      </span>
+                    )}
+
+
+                    <a
+                      href={
+                        job.application_url ||
+                        job.url ||
+                        job.job_url ||
+                        '#'
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="view-job"
+                    >
+                      View Job →
+                    </a>
+
+                  </article>
+
+                )
+              )}
+
+            </div>
+
+          )}
 
         </section>
 
-        {/* =================================
+
+        {/* =================================================
             APPLICATIONS
-           ================================= */}
+            ================================================= */}
 
         <section className="section">
 
@@ -880,6 +1660,7 @@ function App() {
 
           </div>
 
+
           {applications.length === 0 ? (
 
             <div className="empty-card">
@@ -891,7 +1672,10 @@ function App() {
             <div className="application-list">
 
               {applications.map(
-                (application, index) => (
+                (
+                  application,
+                  index
+                ) => (
 
                   <div
                     className="application-card"
@@ -912,30 +1696,37 @@ function App() {
                           }`}
                       </h3>
 
+
                       <p>
                         Status:{' '}
 
                         <strong>
-                          {application.status}
+                          {application.status ||
+                            'pending'}
                         </strong>
 
                       </p>
 
+
+                      {application.company && (
+                        <p>
+                          {application.company}
+                        </p>
+                      )}
+
+
                       {application.created_at && (
-
                         <small>
-
                           Applied:{' '}
 
                           {new Date(
                             application.created_at
                           ).toLocaleDateString()}
-
                         </small>
-
                       )}
 
                     </div>
+
 
                     {application.application_url && (
 
@@ -968,5 +1759,6 @@ function App() {
     </div>
   )
 }
+
 
 export default App
